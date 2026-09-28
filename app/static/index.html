@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ConfusionSolver</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <h1>ConfusionSolver</h1>
+      <p>Your logical reflection companion</p>
+    </div>
+    <button id="reset" type="button" title="Start a new conversation">New conversation</button>
+  </header>
+
+  <main id="chat" aria-live="polite"></main>
+
+  <form id="composer">
+    <textarea id="input" rows="2" placeholder="Describe what's on your mind…" required maxlength="8000"></textarea>
+    <button id="send" type="submit">Send</button>
+  </form>
+  <p class="disclaimer">ConfusionSolver is a reflection aid, not a substitute for professional advice. In an emergency in Malaysia, call 999.</p>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
