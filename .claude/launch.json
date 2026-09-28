@@ -4,8 +4,9 @@
     {
       "name": "confusionsolver",
       "runtimeExecutable": ".venv/Scripts/python.exe",
-      "runtimeArgs": ["-m", "uvicorn", "app.main:app", "--reload", "--port", "8010"],
-      "port": 8010
+      "runtimeArgs": ["run.py"],
+      "port": 8010,
+      "autoPort": true
     }
   ]
 }
