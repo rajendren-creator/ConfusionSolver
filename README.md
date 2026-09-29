@@ -12,36 +12,43 @@ It works like this:
 4. It steers toward forgiveness, personal responsibility, and seeking wise counsel.
 5. It ends with a **Reflection Summary** of the user's insights and concrete next steps.
 
-Built with FastAPI and the Claude API (`claude-opus-5`, with streaming replies). The
-companion's behaviour is defined in [`app/prompt.py`](app/prompt.py).
+Built with FastAPI, with streaming replies from either the Claude API (`claude-opus-5`)
+or Groq (free tier, open models). The companion's behaviour is defined in
+[`app/prompt.py`](app/prompt.py).
 
 ## Run locally
 
 ```bash
 python -m venv .venv
 .venv\Scripts\pip install -r requirements.txt   # Windows
-copy .env.example .env                          # then put your ANTHROPIC_API_KEY in .env
-.venv\Scripts\python -m uvicorn app.main:app --reload --port 8010
+copy .env.example .env                          # then set PROVIDER and that provider's key
+.venv\Scripts\python run.py
 ```
 
 Open http://localhost:8010.
 
 ## Configuration
 
-| Variable            | Default          | Notes                                              |
-|---------------------|------------------|----------------------------------------------------|
-| `ANTHROPIC_API_KEY` | (required)       | Get one at console.anthropic.com                   |
-| `CLAUDE_MODEL`      | `claude-opus-5`  | Model ID                                           |
-| `CLAUDE_EFFORT`     | `medium`         | `low` / `medium` / `high`. Lower is faster and cheaper |
+| Variable            | Default                | Notes                                              |
+|---------------------|------------------------|----------------------------------------------------|
+| `PROVIDER`          | `claude`               | `claude` or `groq`                                 |
+| `ANTHROPIC_API_KEY` | (needed for `claude`)  | Get one at console.anthropic.com (paid credits)    |
+| `CLAUDE_MODEL`      | `claude-opus-5`        | Model ID                                           |
+| `CLAUDE_EFFORT`     | `medium`               | `low` / `medium` / `high`. Lower is faster and cheaper |
+| `GROQ_API_KEY`      | (needed for `groq`)    | Get one free at console.groq.com                   |
+| `GROQ_MODEL`        | `openai/gpt-oss-120b`  | Any Groq chat model, e.g. `llama-3.3-70b-versatile`. Groq retires models over time |
 
-Refusal fallbacks (`fallbacks: "default"`) are enabled. If Claude's safety classifiers
-decline a message, the API retries it on Anthropic's recommended fallback model instead
-of returning a refusal.
+With Claude, refusal fallbacks (`fallbacks: "default"`) are enabled. If Claude's safety
+classifiers decline a message, the API retries it on Anthropic's recommended fallback
+model instead of returning a refusal.
+
+Groq's free tier has per-minute and per-day request limits. When they're hit, users see
+"The service is busy right now".
 
 ## Deploy (Render)
 
-`render.yaml` defines a web service. Create a Blueprint from this repo in Render and set
-`ANTHROPIC_API_KEY` in the dashboard.
+`render.yaml` defines a web service. Create a Blueprint from this repo in Render, then in
+the dashboard set `PROVIDER` and the matching API key.
 
 ## Notes
 

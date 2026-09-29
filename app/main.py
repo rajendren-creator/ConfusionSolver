@@ -1,9 +1,9 @@
 import logging
 import os
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Literal
 
-import anthropic
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.responses import FileResponse, StreamingResponse
@@ -14,14 +14,16 @@ from .prompt import GREETING, SYSTEM_PROMPT
 
 load_dotenv()
 
-MODEL = os.getenv("CLAUDE_MODEL", "claude-opus-5")
-EFFORT = os.getenv("CLAUDE_EFFORT", "medium")
+PROVIDER = os.getenv("PROVIDER", "claude").lower()
 MAX_TURNS = 60
 
 STATIC_DIR = Path(__file__).parent / "static"
 
+BUSY_MSG = "\n\n_The service is busy right now. Please try again in a moment._"
+ERROR_MSG = "\n\n_Something went wrong on our side. Please try again._"
+CONNECTION_MSG = "\n\n_Couldn't reach the AI service. Check the connection and try again._"
+
 log = logging.getLogger("confusionsolver")
-client = anthropic.Anthropic()
 app = FastAPI(title="ConfusionSolver")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
@@ -35,29 +37,50 @@ class ChatRequest(BaseModel):
     messages: list[ChatMessage] = Field(min_length=1, max_length=MAX_TURNS)
 
 
-@app.get("/")
-def index():
-    return FileResponse(STATIC_DIR / "index.html")
+if PROVIDER == "groq":
+    import groq
 
+    GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
+    groq_client = groq.Groq()
 
-@app.get("/api/greeting")
-def greeting():
-    return {"greeting": GREETING}
-
-
-@app.get("/healthz")
-def healthz():
-    return {"ok": True}
-
-
-@app.post("/api/chat")
-def chat(req: ChatRequest):
-    messages = [m.model_dump() for m in req.messages]
-
-    def generate():
+    def stream_reply(messages: list[dict]) -> Iterator[str]:
         try:
-            with client.beta.messages.stream(
-                model=MODEL,
+            stream = groq_client.chat.completions.create(
+                model=GROQ_MODEL,
+                messages=[{"role": "system", "content": SYSTEM_PROMPT}, *messages],
+                max_completion_tokens=8000,
+                stream=True,
+            )
+            finish_reason = None
+            for chunk in stream:
+                if not chunk.choices:
+                    continue
+                choice = chunk.choices[0]
+                if choice.delta.content:
+                    yield choice.delta.content
+                finish_reason = choice.finish_reason or finish_reason
+            if finish_reason == "length":
+                yield "\n\n_(Response was cut short. Ask me to continue.)_"
+        except groq.RateLimitError:
+            yield BUSY_MSG
+        except groq.APIStatusError as e:
+            log.error("Groq API error %s: %s", e.status_code, e.message)
+            yield ERROR_MSG
+        except groq.APIConnectionError:
+            log.exception("Could not reach Groq API")
+            yield CONNECTION_MSG
+
+elif PROVIDER == "claude":
+    import anthropic
+
+    CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-opus-5")
+    CLAUDE_EFFORT = os.getenv("CLAUDE_EFFORT", "medium")
+    claude_client = anthropic.Anthropic()
+
+    def stream_reply(messages: list[dict]) -> Iterator[str]:
+        try:
+            with claude_client.beta.messages.stream(
+                model=CLAUDE_MODEL,
                 max_tokens=16000,
                 system=[{
                     "type": "text",
@@ -66,7 +89,7 @@ def chat(req: ChatRequest):
                 }],
                 messages=messages,
                 thinking={"type": "adaptive"},
-                output_config={"effort": EFFORT},
+                output_config={"effort": CLAUDE_EFFORT},
                 # On a safety-classifier decline, the API retries on Anthropic's
                 # recommended fallback model instead of returning a refusal.
                 betas=["server-side-fallback-2026-07-01"],
@@ -85,16 +108,38 @@ def chat(req: ChatRequest):
             elif final.stop_reason == "max_tokens":
                 yield "\n\n_(Response was cut short. Ask me to continue.)_"
         except anthropic.RateLimitError:
-            yield "\n\n_The service is busy right now. Please try again in a moment._"
+            yield BUSY_MSG
         except anthropic.APIStatusError as e:
             log.error("Claude API error %s: %s", e.status_code, e.message)
-            yield "\n\n_Something went wrong on our side. Please try again._"
+            yield ERROR_MSG
         except anthropic.APIConnectionError:
             log.exception("Could not reach Claude API")
-            yield "\n\n_Couldn't reach the AI service. Check the connection and try again._"
+            yield CONNECTION_MSG
 
+else:
+    raise RuntimeError(f"Unknown PROVIDER {PROVIDER!r}; use 'claude' or 'groq'")
+
+
+@app.get("/")
+def index():
+    return FileResponse(STATIC_DIR / "index.html")
+
+
+@app.get("/api/greeting")
+def greeting():
+    return {"greeting": GREETING}
+
+
+@app.get("/healthz")
+def healthz():
+    return {"ok": True, "provider": PROVIDER}
+
+
+@app.post("/api/chat")
+def chat(req: ChatRequest):
+    messages = [m.model_dump() for m in req.messages]
     return StreamingResponse(
-        generate(),
+        stream_reply(messages),
         media_type="text/plain; charset=utf-8",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
