@@ -78,6 +78,10 @@ button:disabled { opacity: 0.5; cursor: default; }
 .msg p:last-child, .msg ul:last-child, .msg ol:last-child { margin-bottom: 0; }
 .msg ul, .msg ol { margin: 0 0 0.6em; padding-left: 1.4em; }
 .msg h3 { margin: 0.4em 0; font-size: 1.05rem; }
+.msg .table-wrap { overflow-x: auto; margin: 0 0 0.6em; }
+.msg table { border-collapse: collapse; font-size: 0.9rem; }
+.msg th, .msg td { border: 1px solid var(--border); padding: 6px 8px; text-align: left; vertical-align: top; }
+.msg th { background: var(--bg); }
 .msg.pending::after { content: "…"; color: var(--muted); }
 
 #composer {

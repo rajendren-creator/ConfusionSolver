@@ -20,16 +20,33 @@ function inline(s) {
     .replace(/(^|[^*])\*([^*]+?)\*(?!\*)/g, "$1<em>$2</em>");
 }
 
-// Minimal Markdown: headings, bullet/numbered lists, bold/italic, paragraphs.
+const cells = row => row.trim().replace(/^\||\|$/g, "").split("|").map(c => inline(c.trim()));
+
+// Minimal Markdown: headings, bullet/numbered lists, tables, bold/italic, paragraphs.
 function renderMarkdown(md) {
   const lines = escapeHtml(md).split("\n");
-  let html = "", list = null, para = [];
+  let html = "", list = null, para = [], table = null;
   const flushPara = () => { if (para.length) { html += `<p>${inline(para.join("<br>"))}</p>`; para = []; } };
   const closeList = () => { if (list) { html += `</${list}>`; list = null; } };
+  const closeTable = () => {
+    if (!table) return;
+    const [head, ...body] = table;
+    html += `<div class="table-wrap"><table><thead><tr>${head.map(c => `<th>${c}</th>`).join("")}</tr></thead><tbody>`
+      + body.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join("")}</tr>`).join("")
+      + "</tbody></table></div>";
+    table = null;
+  };
 
   for (const raw of lines) {
     const line = raw.trimEnd();
     let m;
+    if (/^\s*\|.*\|\s*$/.test(line)) {
+      flushPara(); closeList();
+      if (/^\s*\|[\s:|-]+\|\s*$/.test(line)) continue; // header separator row
+      (table ??= []).push(cells(line));
+      continue;
+    }
+    closeTable();
     if ((m = line.match(/^#{1,6}\s+(.*)/))) {
       flushPara(); closeList();
       html += `<h3>${inline(m[1])}</h3>`;
@@ -48,7 +65,7 @@ function renderMarkdown(md) {
       para.push(line);
     }
   }
-  flushPara(); closeList();
+  flushPara(); closeList(); closeTable();
   return html;
 }
 
