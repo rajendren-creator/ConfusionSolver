@@ -7,7 +7,7 @@ services:
     healthCheckPath: /healthz
     envVars:
       - key: PROVIDER
-        value: claude
+        value: groq
       - key: ANTHROPIC_API_KEY
         sync: false
       - key: GROQ_API_KEY
