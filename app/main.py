@@ -134,6 +134,12 @@ def index():
     return FileResponse(STATIC_DIR / "index.html")
 
 
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon():
+    # Some browsers request /favicon.ico directly, ignoring the <link rel="icon">.
+    return FileResponse(STATIC_DIR / "favicon.svg", media_type="image/svg+xml")
+
+
 @app.get("/api/greeting")
 def greeting():
     return {"greeting": GREETING}
